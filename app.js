@@ -11,7 +11,11 @@ if (port == null || port == ""){
   port = 3000;
 }
 
+<<<<<<< HEAD
 mongoose.connect("mongodb://localhost:27017/userDB");
+=======
+mongoose.connect("mongodb://localhost:27017");
+>>>>>>> bdfab1454d26434f9507b3930546dcd4ce524316
 
 app.use(express.static("public"));
 app.set('view engine', 'ejs');
