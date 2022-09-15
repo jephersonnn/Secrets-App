@@ -2,8 +2,16 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
+const mongoose = require("mongoose");
 
 const app = express();
+
+let port = process.env.PORT;
+if (port == null || port == ""){
+  port = 3000;
+}
+
+mongoose.connect("mongodb://localhost:27017");
 
 app.use(express.static("public"));
 app.set('view engine', 'ejs');
@@ -12,14 +20,18 @@ app.use(bodyParser.urlencoded({
 }))
 
 
-app.get("/", function(req,res){
+app.get("/", function(req, res) {
   res.render("home.ejs");
-}
+})
 
-app.get("/login", function(req,res){
+app.get("/login", function(req, res) {
   res.render("login.ejs");
-}
+})
 
-app.get("/register", function(req,res){
+app.get("/register", function(req, res) {
   res.render("register.ejs");
-}
+})
+
+app.listen(port, function(req,res){
+  console.log("Server started on port " + port +".");
+})
