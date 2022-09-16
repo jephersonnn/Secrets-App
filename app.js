@@ -4,10 +4,9 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-//const encrypt = require("mongoose-encryption");
-//const md5 = require("md5"); //hash
-const bcrypt = require("bcrypt");
-const saltRounds = 12;
+const session = require('express-session');
+const passport = require('passport'); //passportjs.org/docs
+const passportLocalMongoose = require('passport-local-mongoose');
 
 const app = express();
 
@@ -16,7 +15,6 @@ if (port == null || port == "") {
   port = 3000;
 }
 
-mongoose.connect("mongodb://localhost:27017/userDB");
 
 app.use(express.static("public"));
 app.set('view engine', 'ejs');
@@ -24,20 +22,32 @@ app.use(bodyParser.urlencoded({
   extended: true
 }))
 
+app.use(session({ //uses EXPRESS-SESSION
+  secret: process.env.SECRET_KEY,
+  resave: false,
+  saveUninitialized: false
+}));
+
+app.use(passport.initialize()); //initialize the passport package
+app.use(passport.session()); //use the session for running passport
+
+mongoose.connect("mongodb://localhost:27017/userDB");
+//mongoose.set("useCreateIndex", true); //eliminates the deprication warning for express-session
 // -------------------------------USER SCHEMA-------------------------------
-const userSchema = new mongoose.Schema ({
+const userSchema = new mongoose.Schema({
   email: String,
   password: String
 });
-
-
-//userSchema.plugin(encrypt, {secret: process.env.SECRET_KEY, excludeFromEncryption: ["email"], encryptedField: ["password"]});
-//mongoose-encryption plugin line to encrypt.
-//secret is an authentication key used to encrypt fields referenced by encryptedField
-//excluding fields specified on excludeFromEncryption
-//When using .find, Mongoose automatically decrypts it
+userSchema.plugin(passportLocalMongoose); //passportLocal will do the hashing and salting
 
 const User = mongoose.model("User", userSchema);
+
+//passport.user(MODEL.createStrategy());
+passport.use(User.createStrategy());
+
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
 // -------------------------------USER SCHEMA-------------------------------
 
 // ----------------------------------HOME-----------------------------------
@@ -54,30 +64,30 @@ app.get("/login", function(req, res) {
 })
 
 app.post("/login", function(req, res) {
-  User.findOne({
-    email: req.body.username,
-  }, function(err, foundUser) {
+
+  const user = new User({
+    username: req.body.username,
+    password: req.body.password
+  });
+
+  req.login(user, function(err) {
     if (err) {
       console.log(err);
     } else {
-      if (foundUser) {
-        bcrypt.compare(req.body.password, foundUser.password, function(err,result){
-          if (result === true){
-            console.log("Logged in successfully");
-            res.render("secrets.ejs");
-          }
-        })
-        // if (foundUser.password === req.body.password) { //hash the password in MD5 for an attempt
-        //
-        // }
-      }
+      passport.authenticate("local")(req, res, function() {
+        res.redirect("/secrets");
+      })
     }
-  })
+  }) //uses passportLocal
 })
 // ---------------------------------LOGIN-----------------------------------
 
-
-
+// --------------------------------LOGOUT-----------------------------------
+app.get("/logout", function(req, res) {
+  req.logout(function() {}); //uses passportLocal, requires callback function
+  res.redirect("/");
+})
+// --------------------------------LOGOUT-----------------------------------
 
 // --------------------------------REGISTER---------------------------------
 app.get("/register", function(req, res) {
@@ -85,29 +95,32 @@ app.get("/register", function(req, res) {
 })
 
 app.post("/register", function(req, res) {
-  console.log(req.body.username);
-  console.log(req.body.password);
-
-  bcrypt.hash(req.body.password, saltRounds, function(err, hash){ //bcrypt encryption
-
-      const newUser = new User({
-        email: req.body.username,
-        password: hash
-        //password: md5(req.body.password) //hashing the password in md5
-      });
-
-      newUser.save(function(err) {
-        if (err) {
-          console.log(err);
-        } else {
-          res.render("secrets.ejs");
-            console.log("Registered and logged-in successfully");
-        }
+  User.register({ //uses passportLocal
+    username: req.body.username
+  }, req.body.password, function(err, registeredUser) {
+    if (err) {
+      console.log(err);
+      res.redirect("/register");
+    } else {
+      passport.authenticate("local")(req, res, function() { //if registration is successful
+        res.redirect("/secrets");
       })
-  });
+    }
 
+  }) //uses passportLocalMongoose middleware
 })
 // --------------------------------REGISTER---------------------------------
+
+// --------------------------------SECRETS-----------------------------------
+app.get("/secrets", function(req, res) {
+  if (req.isAuthenticated()) {
+    res.render("secrets.ejs");
+  } else {
+    res.redirect("/login");
+  }
+})
+
+// --------------------------------SECRETS-----------------------------------
 
 
 
