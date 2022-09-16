@@ -5,7 +5,9 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
 //const encrypt = require("mongoose-encryption");
-const md5 = require("md5"); //hash
+//const md5 = require("md5"); //hash
+const bcrypt = require("bcrypt");
+const saltRounds = 12;
 
 const app = express();
 
@@ -59,10 +61,15 @@ app.post("/login", function(req, res) {
       console.log(err);
     } else {
       if (foundUser) {
-        if (foundUser.password === md5(req.body.password)) { //hash the password for an attempt
-          res.render("secrets.ejs");
-          console.log("Logged in successfully");
-        }
+        bcrypt.compare(req.body.password, foundUser.password, function(err,result){
+          if (result === true){
+            console.log("Logged in successfully");
+            res.render("secrets.ejs");
+          }
+        })
+        // if (foundUser.password === req.body.password) { //hash the password in MD5 for an attempt
+        //
+        // }
       }
     }
   })
@@ -81,19 +88,24 @@ app.post("/register", function(req, res) {
   console.log(req.body.username);
   console.log(req.body.password);
 
-  const newUser = new User({
-    email: req.body.username,
-    password: md5(req.body.password) //hashing the password
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash){ //bcrypt encryption
+
+      const newUser = new User({
+        email: req.body.username,
+        password: hash
+        //password: md5(req.body.password) //hashing the password in md5
+      });
+
+      newUser.save(function(err) {
+        if (err) {
+          console.log(err);
+        } else {
+          res.render("secrets.ejs");
+            console.log("Registered and logged-in successfully");
+        }
+      })
   });
 
-  newUser.save(function(err) {
-    if (err) {
-      console.log(err);
-    } else {
-      res.render("secrets.ejs");
-        console.log("Registered and logged-in successfully");
-    }
-  })
 })
 // --------------------------------REGISTER---------------------------------
 
