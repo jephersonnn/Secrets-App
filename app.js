@@ -3,6 +3,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
+const encrypt = require("mongoose-encryption");
 
 const app = express();
 
@@ -20,10 +21,15 @@ app.use(bodyParser.urlencoded({
 }))
 
 // -------------------------------USER SCHEMA-------------------------------
-const userSchema = {
+const userSchema = new mongoose.Schema ({
   email: String,
   password: String
-}
+});
+
+const secretLine = "secretskeepenemiescloserbetch.";
+userSchema.plugin(encrypt, {secret: secretLine, excludeFromEncryption: ["email"], encryptedField: ["password"]});
+//mongoose-encryption plugin line to encrypt.
+//secret is used to encrypt fields referenced by encryptedField
 
 const User = mongoose.model("User", userSchema);
 // -------------------------------USER SCHEMA-------------------------------
@@ -68,6 +74,9 @@ app.get("/register", function(req, res) {
 })
 
 app.post("/register", function(req, res) {
+  console.log(req.body.username);
+  console.log(req.body.password);
+
   const newUser = new User({
     email: req.body.username,
     password: req.body.password
