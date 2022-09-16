@@ -7,6 +7,8 @@ const mongoose = require("mongoose");
 const session = require('express-session');
 const passport = require('passport'); //passportjs.org/docs
 const passportLocalMongoose = require('passport-local-mongoose');
+const findOrCreate = require('mongoose-findorcreate')
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
 
@@ -36,17 +38,40 @@ mongoose.connect("mongodb://localhost:27017/userDB");
 // -------------------------------USER SCHEMA-------------------------------
 const userSchema = new mongoose.Schema({
   email: String,
-  password: String
+  password: String,
+  googleId: String
 });
 userSchema.plugin(passportLocalMongoose); //passportLocal will do the hashing and salting
+userSchema.plugin(findOrCreate); //to use findOrCreate
 
 const User = mongoose.model("User", userSchema);
 
 //passport.user(MODEL.createStrategy());
 passport.use(User.createStrategy());
 
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+passport.serializeUser(function(user, done) {
+  done(null, user.id);
+})
+;
+passport.deserializeUser(function (id,done){
+  User.findById(id, function(err, user){
+    done(err, user);
+  });
+});
+
+//passport Google Auth set-up
+passport.use(new GoogleStrategy({
+  clientID: process.env.CLIENT_ID,
+  clientSecret: process.env.CLIENT_SECRET,
+  callbackURL: "http://localhost:3000/auth/google/secrets", //should match the configuration on the Google Console
+  userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo" //to counter Google+ deprecation
+}, function(accessToken, resfreshToken, profile, cb) {
+  User.findOrCreate({
+    googleId: profile.id //This is ID could be essential to identify users if they are existing or not
+  }, function(err, user) {
+    return cb(err, user);
+  });
+})); //google strategy options
 
 // -------------------------------USER SCHEMA-------------------------------
 
@@ -54,6 +79,19 @@ passport.deserializeUser(User.deserializeUser());
 app.get("/", function(req, res) {
   res.render("home.ejs");
 })
+
+app.get("/auth/google", passport.authenticate("google", {
+  scope: ["profile"]
+}))
+//passport.authenticate("strategy", scope: [data], callback)
+
+
+app.get("/auth/google/secrets", passport.authenticate("google", {
+    failureRedirect: "/login"
+  }),
+  function(req, res) {
+    res.redirect("/secrets"); //successful authentication
+  });
 // ----------------------------------HOME-----------------------------------
 
 
