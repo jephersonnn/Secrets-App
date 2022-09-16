@@ -1,9 +1,11 @@
 //jshint esversion:6
+require('dotenv').config(); //to require dotenv
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
 const encrypt = require("mongoose-encryption");
+
 
 const app = express();
 
@@ -26,10 +28,11 @@ const userSchema = new mongoose.Schema ({
   password: String
 });
 
-const secretLine = "secretskeepenemiescloserbetch.";
-userSchema.plugin(encrypt, {secret: secretLine, excludeFromEncryption: ["email"], encryptedField: ["password"]});
+userSchema.plugin(encrypt, {secret: process.env.SECRET_KEY, excludeFromEncryption: ["email"], encryptedField: ["password"]});
 //mongoose-encryption plugin line to encrypt.
-//secret is used to encrypt fields referenced by encryptedField
+//secret is an authentication key used to encrypt fields referenced by encryptedField
+//excluding fields specified on excludeFromEncryption
+//When using .find, Mongoose automatically decrypts it
 
 const User = mongoose.model("User", userSchema);
 // -------------------------------USER SCHEMA-------------------------------
