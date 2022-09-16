@@ -39,7 +39,8 @@ mongoose.connect("mongodb://localhost:27017/userDB");
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String
+  googleId: String,
+  secretNote: String
 });
 userSchema.plugin(passportLocalMongoose); //passportLocal will do the hashing and salting
 userSchema.plugin(findOrCreate); //to use findOrCreate
@@ -51,10 +52,9 @@ passport.use(User.createStrategy());
 
 passport.serializeUser(function(user, done) {
   done(null, user.id);
-})
-;
-passport.deserializeUser(function (id,done){
-  User.findById(id, function(err, user){
+});
+passport.deserializeUser(function(id, done) {
+  User.findById(id, function(err, user) {
     done(err, user);
   });
 });
@@ -151,16 +151,60 @@ app.post("/register", function(req, res) {
 
 // --------------------------------SECRETS-----------------------------------
 app.get("/secrets", function(req, res) {
+  User.find({
+    "secretNote": {
+      $ne: null
+    }   //.find({filter:{condition}})
+      //remember the comparators for mongoDB. $ne = not equal
+  }, function(err, foundSecrets) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundSecrets) {
+        res.render("secrets", {
+          usersWithSecrets: foundSecrets
+        })
+      }
+    }
+  })
+
+})
+
+
+// --------------------------------SECRETS-----------------------------------
+
+// --------------------------------SUBMIT-----------------------------------
+
+app.get("/submit", function(req, res) {
   if (req.isAuthenticated()) {
-    res.render("secrets.ejs");
+    res.render("submit.ejs");
   } else {
     res.redirect("/login");
   }
 })
 
-// --------------------------------SECRETS-----------------------------------
+app.post("/submit", function(req, res) {
+  console.log(req.user.id);
 
+  User.findById(req.user.id, function(err, foundUser) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUser) {
+        foundUser.secretNote = req.body.secret;
+        foundUser.save(function(err) {
+          if (err) {
+            console.log(err);
+          } else {
+            res.redirect("/secrets");
+          }
+        })
+      }
+    }
+  })
+});
 
+// --------------------------------SUBMIT-----------------------------------
 
 // --------------------------------GENERAL----------------------------------
 app.listen(port, function(req, res) {
